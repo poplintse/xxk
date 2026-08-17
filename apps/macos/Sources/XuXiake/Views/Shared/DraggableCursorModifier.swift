@@ -2,22 +2,63 @@ import AppKit
 import SwiftUI
 
 extension View {
-    func draggableCursor() -> some View {
-        modifier(DraggableCursorModifier())
+    func draggableCursor(isEnabled: Bool = true) -> some View {
+        modifier(DraggableCursorModifier(isEnabled: isEnabled))
+    }
+
+    func verticalResizeCursor(isDragging: Bool) -> some View {
+        modifier(VerticalResizeCursorModifier(isDragging: isDragging))
     }
 }
 
 private struct DraggableCursorModifier: ViewModifier {
+    let isEnabled: Bool
     @State private var cursorController = GrabCursorController()
 
     func body(content: Content) -> some View {
         content
             .onHover { isHovering in
-                cursorController.setHovering(isHovering)
+                if isEnabled {
+                    cursorController.setHovering(isHovering)
+                }
+            }
+            .onChange(of: isEnabled) { _, isEnabled in
+                if !isEnabled {
+                    cursorController.stop()
+                }
             }
             .onDisappear {
                 cursorController.stop()
             }
+    }
+}
+
+private struct VerticalResizeCursorModifier: ViewModifier {
+    let isDragging: Bool
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { isHovering in
+                self.isHovering = isHovering
+                updateCursor()
+            }
+            .onChange(of: isDragging) { _, _ in
+                updateCursor()
+            }
+            .onDisappear {
+                if isHovering || isDragging {
+                    NSCursor.arrow.set()
+                }
+            }
+    }
+
+    private func updateCursor() {
+        if isHovering || isDragging {
+            NSCursor.resizeUpDown.set()
+        } else {
+            NSCursor.arrow.set()
+        }
     }
 }
 

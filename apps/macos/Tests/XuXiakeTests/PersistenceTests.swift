@@ -23,6 +23,21 @@ struct PersistenceTests {
         #expect(fetchedTrips[0].items[0].trip?.id == fetchedTrips[0].id)
     }
 
+    @Test func renamedTripPersistsThroughSwiftData() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Trip.self, TripItem.self, configurations: configuration)
+        let context = container.mainContext
+        let trip = Trip(title: "原旅行名称", destination: "杭州", startDate: .now, endDate: .now)
+        context.insert(trip)
+        try context.save()
+
+        trip.title = "修改后的旅行名称"
+        try context.save()
+
+        let trips = try context.fetch(FetchDescriptor<Trip>())
+        #expect(trips.first?.title == "修改后的旅行名称")
+    }
+
     @Test func completeItinerarySurvivesStoreReopen() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("XuXiakeTests-\(UUID().uuidString)", isDirectory: true)

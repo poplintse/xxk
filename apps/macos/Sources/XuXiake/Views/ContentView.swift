@@ -8,6 +8,7 @@ struct ContentView: View {
     @SceneStorage("selectedTripID") private var selectedTripID: String?
     @State private var editingTrip: Trip?
     @State private var tripPendingDeletion: Trip?
+    @State private var renamingTripID: UUID?
 
     private var selectedTrip: Trip? {
         guard let selectedTripID else { return trips.first }
@@ -19,7 +20,16 @@ struct ContentView: View {
             List(selection: $selectedTripID) {
                 Section {
                     ForEach(trips) { trip in
-                        TripSidebarRow(trip: trip)
+                        TripSidebarRow(
+                            trip: trip,
+                            isRenaming: renamingTripID == trip.id,
+                            onBeginRenaming: {
+                                selectedTripID = trip.id.uuidString
+                                renamingTripID = trip.id
+                            },
+                            onSaveTitle: { title in renameTrip(trip, to: title) },
+                            onFinishRenaming: { renamingTripID = nil }
+                        )
                             .tag(trip.id.uuidString)
                             .contextMenu {
                                 Button("编辑旅行…", systemImage: "pencil") {
@@ -126,10 +136,37 @@ struct ContentView: View {
         errorState.save(modelContext, operation: "删除旅行")
         selectedTripID = trips.first(where: { $0.id != trip.id })?.id.uuidString
     }
+
+    private func renameTrip(_ trip: Trip, to title: String) {
+        trip.title = title
+        errorState.save(modelContext, operation: "重命名旅行")
+    }
 }
 
 private struct TripSidebarRow: View {
     let trip: Trip
+    let isRenaming: Bool
+    let onBeginRenaming: () -> Void
+    let onSaveTitle: (String) -> Void
+    let onFinishRenaming: () -> Void
+
+    @State private var titleDraft: String
+    @FocusState private var titleIsFocused: Bool
+
+    init(
+        trip: Trip,
+        isRenaming: Bool,
+        onBeginRenaming: @escaping () -> Void,
+        onSaveTitle: @escaping (String) -> Void,
+        onFinishRenaming: @escaping () -> Void
+    ) {
+        self.trip = trip
+        self.isRenaming = isRenaming
+        self.onBeginRenaming = onBeginRenaming
+        self.onSaveTitle = onSaveTitle
+        self.onFinishRenaming = onFinishRenaming
+        _titleDraft = State(initialValue: trip.title)
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -137,12 +174,49 @@ private struct TripSidebarRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 2) {
-                Text(trip.title).lineLimit(1)
+                if isRenaming {
+                    TextField("旅行名称", text: $titleDraft)
+                        .textFieldStyle(.plain)
+                        .focused($titleIsFocused)
+                        .onSubmit(saveTitle)
+                        .onChange(of: titleIsFocused) { wasFocused, isFocused in
+                            if wasFocused && !isFocused {
+                                saveTitle()
+                            }
+                        }
+                        .onAppear {
+                            titleDraft = trip.title
+                            titleIsFocused = true
+                        }
+                } else {
+                    Text(trip.title).lineLimit(1)
+                }
                 Text(trip.destination.isEmpty ? "尚未设置目的地" : trip.destination)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            if !isRenaming {
+                onBeginRenaming()
+            }
+        }
+        .accessibilityAction(named: "重命名") {
+            if !isRenaming {
+                onBeginRenaming()
+            }
+        }
+    }
+
+    private func saveTitle() {
+        let trimmedTitle = titleDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedTitle.isEmpty, trimmedTitle != trip.title {
+            onSaveTitle(trimmedTitle)
+        } else if trimmedTitle.isEmpty {
+            titleDraft = trip.title
+        }
+        onFinishRenaming()
     }
 }

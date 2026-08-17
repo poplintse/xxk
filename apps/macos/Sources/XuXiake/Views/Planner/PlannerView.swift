@@ -28,6 +28,8 @@ struct PlannerView: View {
         HSplitView {
             UnscheduledItemsPanel(
                 items: trip.items.filter { !$0.isScheduled }.sorted { $0.createdAt < $1.createdAt },
+                scheduledItems: trip.items.filter(\.isScheduled).sorted { ($0.plannedStart ?? .distantFuture) < ($1.plannedStart ?? .distantFuture) },
+                timeZone: calendar.timeZone,
                 onAdd: { showingNewItem = true },
                 onEdit: { editingItem = $0 },
                 onDropItemID: unplan,
@@ -51,6 +53,7 @@ struct PlannerView: View {
                     timelineStartHour: preferences.timelineStartHour,
                     showsConflictWarnings: preferences.warnsAboutOverlap,
                     onDrop: schedule,
+                    onCreate: createScheduledItem,
                     onEdit: { editingItem = $0 },
                     onUnplan: unplan,
                     onDelete: { itemPendingDeletion = $0 },
@@ -85,10 +88,23 @@ struct PlannerView: View {
         }
     }
 
-    private func schedule(itemID: String, day: Date, minute: Int) {
-        guard let id = UUID(uuidString: itemID), let item = trip.items.first(where: { $0.id == id }) else { return }
+    private func schedule(itemID: UUID, day: Date, minute: Int) {
+        guard let item = trip.items.first(where: { $0.id == itemID }) else { return }
         ScheduleEngine.schedule(item, on: day, minute: minute, calendar: calendar, preferences: preferences)
         errorState.save(modelContext, operation: "安排事项")
+    }
+
+    private func createScheduledItem(on day: Date, minute: Int, title: String) {
+        let item = TripItem(
+            title: title,
+            kind: .other,
+            estimatedMinutes: 120,
+            currencyCode: preferences.currencyCode
+        )
+        ScheduleEngine.schedule(item, on: day, minute: minute, calendar: calendar, preferences: preferences)
+        modelContext.insert(item)
+        trip.items.append(item)
+        errorState.save(modelContext, operation: "添加事项")
     }
 
     private func delete(_ item: TripItem) {
@@ -102,8 +118,8 @@ struct PlannerView: View {
         errorState.save(modelContext, operation: "取消安排")
     }
 
-    private func unplan(itemID: String) -> Bool {
-        guard let id = UUID(uuidString: itemID), let item = trip.items.first(where: { $0.id == id }) else { return false }
+    private func unplan(itemID: UUID) -> Bool {
+        guard let item = trip.items.first(where: { $0.id == itemID }) else { return false }
         unplan(item)
         return true
     }

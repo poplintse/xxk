@@ -16,6 +16,21 @@ struct ScheduleEngineTests {
         #expect(ScheduleEngine.snap(24 * 60 - 1, step: 15) == 24 * 60 - 15)
     }
 
+    @Test func scheduledStandardItemUsesClickedTimeAndItsDefaultDuration() {
+        let suiteName = "ScheduleEngineTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = AppPreferences(defaults: defaults)
+        let item = TripItem(title: "逛书店", kind: .other, estimatedMinutes: 120)
+        let day = calendar.date(from: DateComponents(year: 2026, month: 10, day: 12))!
+
+        ScheduleEngine.schedule(item, on: day, minute: 68, calendar: calendar, preferences: preferences)
+
+        #expect(item.plannedStart == calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 1, minute: 15)))
+        #expect(item.plannedEnd == calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 3, minute: 15)))
+        #expect(item.estimatedMinutes == 120)
+    }
+
     @Test func lodgingUsesConfiguredCheckInAndCheckout() {
         let suiteName = "ScheduleEngineTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

@@ -12,7 +12,8 @@ struct WeekTimelineView: View {
     let calendar: Calendar
     let timelineStartHour: Int
     let showsConflictWarnings: Bool
-    let onDrop: (String, Date, Int) -> Void
+    let onDrop: (UUID, Date, Int) -> Void
+    let onCreate: (Date, Int, String) -> Void
     let onEdit: (TripItem) -> Void
     let onUnplan: (TripItem) -> Void
     let onDelete: (TripItem) -> Void
@@ -36,6 +37,7 @@ struct WeekTimelineView: View {
                         startHour: timelineStartHour,
                         conflictingItemIDs: showsConflictWarnings ? ScheduleEngine.conflictingItemIDs(in: items) : [],
                         onDrop: onDrop,
+                        onCreate: onCreate,
                         onEdit: onEdit,
                         onUnplan: onUnplan,
                         onDelete: onDelete,
@@ -78,12 +80,15 @@ private struct DayTimelineColumn: View {
     let dayWidth: CGFloat
     let startHour: Int
     let conflictingItemIDs: Set<UUID>
-    let onDrop: (String, Date, Int) -> Void
+    let onDrop: (UUID, Date, Int) -> Void
+    let onCreate: (Date, Int, String) -> Void
     let onEdit: (TripItem) -> Void
     let onUnplan: (TripItem) -> Void
     let onDelete: (TripItem) -> Void
     let onResize: (UUID, ScheduleResizeEdge, Int) -> Void
     let onMove: (UUID, Int, Int) -> Void
+
+    @State private var quickEntry: TimelineQuickEntry?
 
     private var orderedItems: [TripItem] {
         items.filter { ScheduleEngine.timelineSegment(for: $0, on: day, startHour: startHour, calendar: calendar) != nil }
@@ -102,7 +107,11 @@ private struct DayTimelineColumn: View {
             .background(.bar)
 
             ZStack(alignment: .topLeading) {
-                HourGrid(hourHeight: hourHeight)
+                HourGrid(
+                    hourHeight: hourHeight,
+                    dayWidth: dayWidth,
+                    onTap: beginQuickEntry(at:)
+                )
                 ForEach(orderedItems) { item in
                     if let segment = ScheduleEngine.timelineSegment(for: item, on: day, startHour: startHour, calendar: calendar) {
                         TimelineItemBlock(
@@ -120,11 +129,24 @@ private struct DayTimelineColumn: View {
                         )
                     }
                 }
+                if let quickEntry {
+                    TimelineQuickEntryCard(
+                        entry: quickEntry,
+                        hourHeight: hourHeight,
+                        dayWidth: dayWidth,
+                        timeZone: calendar.timeZone,
+                        onSave: { title in
+                            onCreate(quickEntry.day, quickEntry.minute, title)
+                            self.quickEntry = nil
+                        },
+                        onCancel: { self.quickEntry = nil }
+                    )
+                    .id(quickEntry.id)
+                }
             }
             .frame(width: dayWidth, height: hourHeight * 24)
-            .contentShape(Rectangle())
-            .dropDestination(for: String.self) { itemIDs, location in
-                guard let itemID = itemIDs.first else {
+            .dropDestination(for: PlannerItemDragPayload.self) { payloads, location in
+                guard let payload = payloads.first else {
                     plannerDragLogger.error("Timeline drop rejected: no item identifier")
                     return false
                 }
@@ -136,16 +158,102 @@ private struct DayTimelineColumn: View {
                     calendar: calendar
                 )
                 plannerDragLogger.info("Timeline drop received")
-                onDrop(itemID, target.day, target.minute)
+                onDrop(payload.itemID, target.day, target.minute)
                 return true
             }
         }
         .overlay(alignment: .trailing) { Divider() }
     }
+
+    private func beginQuickEntry(at location: CGPoint) {
+        let minuteFromVisibleStart = min(
+            max(Int((location.y / hourHeight) * 60), 0),
+            24 * 60 - 1
+        )
+        let target = ScheduleEngine.dropTarget(
+            on: day,
+            minuteFromVisibleStart: minuteFromVisibleStart,
+            startHour: startHour,
+            calendar: calendar
+        )
+        quickEntry = TimelineQuickEntry(
+            day: target.day,
+            minute: target.minute,
+            positionMinute: minuteFromVisibleStart
+        )
+    }
+}
+
+private struct TimelineQuickEntry: Identifiable {
+    let id = UUID()
+    let day: Date
+    let minute: Int
+    let positionMinute: Int
+}
+
+private struct TimelineQuickEntryCard: View {
+    let entry: TimelineQuickEntry
+    let hourHeight: CGFloat
+    let dayWidth: CGFloat
+    let timeZone: TimeZone
+    let onSave: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var title = ""
+    @FocusState private var titleIsFocused: Bool
+
+    private var start: Date {
+        entry.day.addingTimeInterval(TimeInterval(entry.minute * 60))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(AppFormatters.time(start, timeZone: timeZone))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField("输入事项", text: $title)
+                .textFieldStyle(.plain)
+                .font(.subheadline.weight(.medium))
+                .focused($titleIsFocused)
+                .onSubmit(save)
+            HStack(spacing: 8) {
+                Text("预计 2 小时")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("取消", action: onCancel)
+                    .buttonStyle(.borderless)
+                Button("添加", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(8)
+        .frame(width: dayWidth - 10, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.accentColor.opacity(0.65), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .offset(x: 5, y: CGFloat(entry.positionMinute) / 60 * hourHeight)
+        .onAppear { titleIsFocused = true }
+        .onExitCommand(perform: onCancel)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("在 \(AppFormatters.time(start, timeZone: timeZone)) 添加事项")
+    }
+
+    private func save() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+        onSave(trimmedTitle)
+    }
 }
 
 private struct HourGrid: View {
     let hourHeight: CGFloat
+    let dayWidth: CGFloat
+    let onTap: (CGPoint) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,6 +264,9 @@ private struct HourGrid: View {
                     .overlay(alignment: .top) { Divider() }
             }
         }
+        .frame(width: dayWidth)
+        .contentShape(Rectangle())
+        .gesture(SpatialTapGesture().onEnded { onTap($0.location) })
     }
 }
 
@@ -174,6 +285,7 @@ private struct TimelineItemBlock: View {
 
     @State private var startDragHeight: CGFloat = 0
     @State private var endDragHeight: CGFloat = 0
+    @State private var isResizing = false
     @State private var moveTranslation: CGSize = .zero
 
     private var visibleDuration: Int {
@@ -239,7 +351,7 @@ private struct TimelineItemBlock: View {
             y: CGFloat(segment.startMinute) / 60 * hourHeight + startDragHeight + moveTranslation.height
         )
         .gesture(moveGesture)
-        .draggableCursor()
+        .draggableCursor(isEnabled: !isResizing)
         .onTapGesture(count: 2, perform: onEdit)
         .contextMenu {
             Button("编辑", action: onEdit)
@@ -293,21 +405,29 @@ private struct TimelineItemBlock: View {
     }
 
     private func resizeHandle(edge: ScheduleResizeEdge, translation: Binding<CGFloat>) -> some View {
-        Capsule()
-            .fill(.secondary.opacity(0.55))
-            .frame(width: 34, height: 4)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle().inset(by: -5))
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { translation.wrappedValue = $0.translation.height }
-                    .onEnded { value in
-                        let deltaMinutes = Int(value.translation.height / hourHeight * 60)
-                        translation.wrappedValue = 0
-                        onResize(item.id, edge, deltaMinutes)
-                    }
-            )
-            .help(edge == .start ? "拖动调整开始时间" : "拖动调整结束时间")
-            .accessibilityHidden(true)
+        ZStack {
+            Capsule()
+                .fill(.secondary.opacity(0.55))
+                .frame(width: 34, height: 4)
+        }
+        .frame(maxWidth: .infinity, minHeight: 12)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { value in
+                    isResizing = true
+                    NSCursor.resizeUpDown.set()
+                    translation.wrappedValue = value.translation.height
+                }
+                .onEnded { value in
+                    let deltaMinutes = Int(value.translation.height / hourHeight * 60)
+                    translation.wrappedValue = 0
+                    isResizing = false
+                    onResize(item.id, edge, deltaMinutes)
+                }
+        )
+        .verticalResizeCursor(isDragging: isResizing)
+        .help(edge == .start ? "拖动调整开始时间" : "拖动调整结束时间")
+        .accessibilityHidden(true)
     }
 }
