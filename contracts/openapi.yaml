@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info:
+  title: 徐霞客 API
+  version: 0.0.0
+  description: >-
+    产品探索阶段的占位契约。尚未确定需要后端 API，因此不定义路径、数据模型或认证方式。
+paths: {}

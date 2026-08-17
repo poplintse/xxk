@@ -17,4 +17,4 @@
 
 ## iOS
 
-在 macOS 数据模型和日程规则稳定后，复用核心模型与 `ScheduleEngine`，为触控和窄屏重新设计规划交互，而不是直接缩小桌面界面。
+开始 iOS 实施前，先根据 `docs/product/capabilities/`、Capability Matrix 和 iOS Client 文档确定本期范围。macOS 模型与 `ScheduleEngine` 只能用于理解已验证行为，不是 iOS 的直接规格。出现真实的多端共享用例后，再决定是否提取共享 Swift 包；iOS 规划交互应针对触控和窄屏重新设计。

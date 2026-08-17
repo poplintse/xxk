@@ -1,0 +1,11 @@
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.18s)
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app: replacing existing signature
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app: valid on disk
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app: satisfies its Designated Requirement
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app: valid on disk
+/Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app: satisfies its Designated Requirement
+verified macos 0.1.0 (build 4): /Users/iclawtse/workspace/projects/xxk/artifacts/macos/0.1.0/XuXiake-debug-4.app

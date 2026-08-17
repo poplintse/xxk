@@ -4,14 +4,22 @@
 
 首个 macOS 版本采用本地优先设计。规划、月览和行程表读取同一组 `Trip` 与 `TripItem` 数据；住宿的跨天块由 `ScheduleEngine` 动态计算，不复制持久化记录。
 
-## 模块
+## Monorepo 边界
+
+- `apps/`：各平台客户端；当前只有 `apps/macos` 是可构建工程。
+- `services/`：后端服务；尚未选型。
+- `packages/`：有真实多消费者后才提取的共享包。
+- `contracts/`：未来跨端 API 契约源。
+- `product/` 与 `docs/`：产品探索材料和已稳定文档。
+
+## macOS 模块
 
 - `App/`：应用入口、主窗口和设置场景。
 - `Models/`：SwiftData 模型与稳定枚举。
 - `Views/`：主工作区、规划时间轴、月览、行程表和编辑器。
 - `Support/`：设置、日期金额格式化与日程计算。
 - `Stores/`：应用级错误状态与持久化失败呈现。
-- `Tests/`：不依赖界面的日程和住宿规则测试。
+- `apps/macos/Tests/`：不依赖界面的日程和住宿规则测试。
 
 ## 状态所有权
 
