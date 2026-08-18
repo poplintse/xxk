@@ -93,15 +93,7 @@ struct ContentView: View {
             }
         }
         .focusedSceneValue(\.newTripAction, NewTripAction(perform: createTrip))
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Text(AppVersionInfo.displayString)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .help("应用版本信息")
-                    .accessibilityLabel("应用版本 \(AppVersionInfo.displayString)")
-            }
-        }
+        .background(VersionInfoTitlebarAccessory(text: AppVersionInfo.displayString))
         .sheet(item: $editingTrip) { trip in
             TripEditorView(trip: trip)
         }
