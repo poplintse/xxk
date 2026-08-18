@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct UnscheduledItemsPanel: View {
     let items: [TripItem]
@@ -7,6 +8,7 @@ struct UnscheduledItemsPanel: View {
     let timeZone: TimeZone
     let onAdd: () -> Void
     let onEdit: (TripItem) -> Void
+    let onDropItemID: (UUID) -> Bool
     let onDelete: (TripItem) -> Void
 
     @State private var showsScheduledItems = false
@@ -68,6 +70,10 @@ struct UnscheduledItemsPanel: View {
                 } else {
                     List(scheduledItems) { item in
                         ScheduledItemRow(item: item, timeZone: timeZone)
+                            .onDrag {
+                                NSItemProvider(object: item.id.uuidString as NSString)
+                            }
+                            .draggableCursor()
                             .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
@@ -101,6 +107,33 @@ struct UnscheduledItemsPanel: View {
             .accessibilityLabel("已安排事项")
             .accessibilityValue(showsScheduledItems ? "已展开" : "已收起")
         }
+        .onDrop(
+            of: [.utf8PlainText],
+            delegate: UnscheduledItemDropDelegate(onDropItemID: onDropItemID)
+        )
+    }
+}
+
+private struct UnscheduledItemDropDelegate: DropDelegate {
+    let onDropItemID: (UUID) -> Bool
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.utf8PlainText])
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.utf8PlainText]).first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let itemIDString = object as? String, let itemID = UUID(uuidString: itemIDString) else { return }
+            Task { @MainActor in
+                _ = onDropItemID(itemID)
+            }
+        }
+        return true
     }
 }
 

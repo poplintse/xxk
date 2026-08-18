@@ -32,6 +32,7 @@ struct PlannerView: View {
                 timeZone: calendar.timeZone,
                 onAdd: { showingNewItem = true },
                 onEdit: { editingItem = $0 },
+                onDropItemID: unplan,
                 onDelete: { itemPendingDeletion = $0 }
             )
             .frame(minWidth: 210, idealWidth: 240, maxWidth: 310, maxHeight: .infinity)
@@ -115,6 +116,12 @@ struct PlannerView: View {
         item.plannedStart = nil
         item.plannedEnd = nil
         errorState.save(modelContext, operation: "取消安排")
+    }
+
+    private func unplan(itemID: UUID) -> Bool {
+        guard let item = trip.items.first(where: { $0.id == itemID }) else { return false }
+        unplan(item)
+        return true
     }
 
     private func resize(itemID: UUID, edge: ScheduleResizeEdge, deltaMinutes: Int) {

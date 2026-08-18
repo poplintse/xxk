@@ -4,7 +4,6 @@ struct TripWorkspaceView: View {
     let trip: Trip
     @SceneStorage("workspaceSection") private var selectedSectionRawValue = WorkspaceSection.planner.rawValue
     @State private var plannerAnchorDate: Date?
-    @State private var showingTripEditor = false
 
     private var timeZone: TimeZone {
         TimeZone(identifier: trip.timeZoneIdentifier) ?? .current
@@ -52,24 +51,7 @@ struct TripWorkspaceView: View {
                 .labelsHidden()
                 .frame(width: 330)
             }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { showingTripEditor = true } label: {
-                    Label("旅行信息", systemImage: "calendar.badge.clock")
-                }
-                .labelStyle(.iconOnly)
-                .help("编辑旅行日期和时区")
-                .accessibilityLabel("编辑旅行信息")
-                SettingsLink {
-                    Label("设置", systemImage: "gearshape")
-                }
-                .labelStyle(.iconOnly)
-                .help("打开设置")
-                .accessibilityLabel("打开设置")
-            }
         }
         .environment(\.timeZone, timeZone)
-        .sheet(isPresented: $showingTripEditor) {
-            TripEditorView(trip: trip)
-        }
     }
 }

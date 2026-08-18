@@ -33,22 +33,6 @@ read_single_line() {
   tr -d '[:space:]' <"$file"
 }
 
-next_macos_build_number() {
-  local source_build="$1"
-  local highest="$source_build"
-  local plist
-  local artifact_build
-
-  while IFS= read -r plist; do
-    artifact_build="$(plutil -extract CFBundleVersion raw -o - "$plist" 2>/dev/null || true)"
-    if [[ "$artifact_build" =~ ^[1-9][0-9]*$ ]] && (( artifact_build > highest )); then
-      highest="$artifact_build"
-    fi
-  done < <(find "$BUILD_ROOT/artifacts/macos" -type f -path '*/Contents/Info.plist' -print 2>/dev/null)
-
-  printf '%s\n' "$((highest + 1))"
-}
-
 planned_target() {
   local label="$1"
   local platform="$2"

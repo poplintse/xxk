@@ -17,55 +17,58 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedTripID) {
-                Section {
-                    ForEach(trips) { trip in
-                        TripSidebarRow(
-                            trip: trip,
-                            isRenaming: renamingTripID == trip.id,
-                            onBeginRenaming: {
-                                selectedTripID = trip.id.uuidString
-                                renamingTripID = trip.id
-                            },
-                            onSaveTitle: { title in renameTrip(trip, to: title) },
-                            onFinishRenaming: { renamingTripID = nil }
-                        )
-                            .tag(trip.id.uuidString)
-                            .contextMenu {
-                                Button("编辑旅行…", systemImage: "pencil") {
-                                    editingTrip = trip
+            VStack(spacing: 0) {
+                List(selection: $selectedTripID) {
+                    Section {
+                        ForEach(trips) { trip in
+                            TripSidebarRow(
+                                trip: trip,
+                                isRenaming: renamingTripID == trip.id,
+                                onBeginRenaming: {
+                                    selectedTripID = trip.id.uuidString
+                                    renamingTripID = trip.id
+                                },
+                                onSaveTitle: { title in renameTrip(trip, to: title) },
+                                onFinishRenaming: { renamingTripID = nil }
+                            )
+                                .tag(trip.id.uuidString)
+                                .contextMenu {
+                                    Button("编辑旅行…", systemImage: "pencil") {
+                                        editingTrip = trip
+                                    }
+                                    Divider()
+                                    Button("删除旅行", role: .destructive) { tripPendingDeletion = trip }
                                 }
-                                Divider()
-                                Button("删除旅行", role: .destructive) { tripPendingDeletion = trip }
-                            }
-                    }
-                } header: {
-                    HStack(spacing: 8) {
-                        Text("旅行")
-                        Spacer()
-                        Button(action: createTrip) {
-                            Image(systemName: "plus")
                         }
-                        .buttonStyle(.borderless)
-                        .help("新建旅行")
-                        .accessibilityLabel("新建旅行")
+                    } header: {
+                        HStack(spacing: 8) {
+                            Text("旅行")
+                            Spacer()
+                            Button(action: createTrip) {
+                                Image(systemName: "plus")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("新建旅行")
+                            .accessibilityLabel("新建旅行")
+                        }
                     }
                 }
-            }
-            .listStyle(.sidebar)
-            .contextMenu {
-                Button("新建旅行", systemImage: "plus", action: createTrip)
+                .listStyle(.sidebar)
+                .contextMenu {
+                    Button("新建旅行", systemImage: "plus", action: createTrip)
+                }
+                Divider()
+                SettingsLink {
+                    Label("配置", systemImage: "gearshape")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .help("打开配置")
+                .accessibilityLabel("打开配置")
             }
             .navigationTitle("徐霞客")
-            .toolbar {
-                ToolbarItem {
-                    Button(action: createTrip) {
-                        Label("新建旅行", systemImage: "plus")
-                    }
-                    .help("新建旅行")
-                    .accessibilityLabel("新建旅行")
-                }
-            }
         } detail: {
             Group {
                 if let selectedTrip {
@@ -90,6 +93,15 @@ struct ContentView: View {
             }
         }
         .focusedSceneValue(\.newTripAction, NewTripAction(perform: createTrip))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Text(AppVersionInfo.displayString)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .help("应用版本信息")
+                    .accessibilityLabel("应用版本 \(AppVersionInfo.displayString)")
+            }
+        }
         .sheet(item: $editingTrip) { trip in
             TripEditorView(trip: trip)
         }

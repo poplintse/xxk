@@ -1,3 +1,4 @@
+import Foundation
 import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
@@ -323,7 +324,6 @@ private struct TimelineItemBlock: View {
     @State private var startDragHeight: CGFloat = 0
     @State private var endDragHeight: CGFloat = 0
     @State private var isResizing = false
-    @State private var moveTranslation: CGSize = .zero
 
     private var visibleDuration: Int {
         max(segment.endMinute - segment.startMinute, 20)
@@ -384,10 +384,12 @@ private struct TimelineItemBlock: View {
                 .frame(width: 3)
         }
         .offset(
-            x: 5 + moveTranslation.width,
-            y: CGFloat(segment.startMinute) / 60 * hourHeight + startDragHeight + moveTranslation.height
+            x: 5,
+            y: CGFloat(segment.startMinute) / 60 * hourHeight + startDragHeight
         )
-        .gesture(moveGesture)
+        .onDrag {
+            NSItemProvider(object: item.id.uuidString as NSString)
+        }
         .draggableCursor(isEnabled: !isResizing)
         .onTapGesture(count: 2, perform: onEdit)
         .contextMenu {
@@ -426,19 +428,6 @@ private struct TimelineItemBlock: View {
     private var accessibilityScheduleValue: String {
         guard let start = item.plannedStart, let end = item.plannedEnd else { return "未安排" }
         return "\(AppFormatters.dateTime(start, timeZone: timeZone)) 至 \(AppFormatters.dateTime(end, timeZone: timeZone))"
-    }
-
-    private var moveGesture: some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { moveTranslation = $0.translation }
-            .onEnded { value in
-                let dayDelta = Int((value.translation.width / dayWidth).rounded())
-                let minuteDelta = Int(value.translation.height / hourHeight * 60)
-                moveTranslation = .zero
-                guard dayDelta != 0 || minuteDelta != 0 else { return }
-                plannerDragLogger.info("Timeline block move completed")
-                onMove(item.id, dayDelta, minuteDelta)
-            }
     }
 
     private func resizeHandle(edge: ScheduleResizeEdge, translation: Binding<CGFloat>) -> some View {

@@ -9,6 +9,7 @@ source "$SCRIPT_DIR/build-common.sh"
 readonly APP_NAME="XuXiake"
 readonly MACOS_DIR="$BUILD_ROOT/apps/macos"
 requested_version="${VERSION:-${1:-}}"
+requested_build_number="${BUILD_NUMBER:-}"
 create_build_log macos debug
 
 source_version="$(read_single_line "$MACOS_DIR/VERSION")"
@@ -22,9 +23,15 @@ fi
 if [[ -n "$requested_version" ]] && ! is_semver "$requested_version"; then
   fail_build "macOS Debug" "invalid VERSION: $requested_version" 2
 fi
+if [[ -n "$requested_version" && "$requested_version" != "$source_version" ]]; then
+  fail_build "macOS Debug" "VERSION=$requested_version does not match apps/macos/VERSION=$source_version" 2
+fi
+if [[ -n "$requested_build_number" && "$requested_build_number" != "$source_build" ]]; then
+  fail_build "macOS Debug" "BUILD_NUMBER=$requested_build_number does not match apps/macos/BUILD_NUMBER=$source_build" 2
+fi
 
-version="${requested_version:-$source_version}"
-build_number="$(next_macos_build_number "$source_build")"
+version="$source_version"
+build_number="$source_build"
 artifact_dir="$BUILD_ROOT/artifacts/macos/$version"
 artifact="$artifact_dir/$APP_NAME-debug-$build_number.app"
 mkdir -p "$artifact_dir"
