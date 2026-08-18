@@ -11,7 +11,7 @@ SHELL := /bin/bash
 help:
 	@printf '%s\n' \
 		'make set-macos-version VERSION=0.3.0    Set the macOS release version' \
-		'make set-macos-build-number BUILD_NUMBER=9 Set the macOS build number' \
+		'make set-macos-build-number BUILD_NUMBER=9 Reset the macOS build-number base' \
 		'make build-macos-release                Build a locally signed macOS release' \
 		'make build-macos-debug                  Build a locally signed macOS debug app' \
 		'make build-ios-release VERSION=0.3.0    Build iOS when its project exists' \

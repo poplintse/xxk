@@ -50,7 +50,11 @@ NOTARY_PROFILE="xuxiake-notary" ./scripts/macos/notarize.sh
 
 ## 发布前检查
 
-1. 更新 `apps/macos/VERSION`（三段版本号）和 `apps/macos/BUILD_NUMBER`（递增构建号）；打包脚本会验证格式并写入应用元数据。
+1. 更新 `apps/macos/VERSION`（三段版本号）。构建脚本会根据 `BUILD_NUMBER` 和已有产物自动分配下一个递增构建号，并只会在构建验证成功后写回 `apps/macos/BUILD_NUMBER`。
+
+## 组件构建号
+
+未实现客户端及服务的构建号基线位于 `release/BUILD_NUMBERS`。其构建脚本会在成功构建并验证产物后记录下一个编号；目标尚不可构建或构建失败时不会占用编号。Android 发布产物启用后，文件名将包含这个编号。
 2. 运行 `./scripts/test.sh`。
 3. 使用真实 Developer ID 运行 `build_release.sh`。
 4. 检查 `codesign -dvvv --entitlements - dist/release/XuXiake.app`。

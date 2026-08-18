@@ -1,0 +1,7 @@
+# Last build number successfully assigned to each unimplemented component.
+# Build scripts update this file only after a build and artifact verification pass.
+ios=0
+android=0
+windows=0
+backend=0
+web=0

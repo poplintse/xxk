@@ -9,7 +9,6 @@ source "$SCRIPT_DIR/build-common.sh"
 readonly APP_NAME="XuXiake"
 readonly MACOS_DIR="$BUILD_ROOT/apps/macos"
 requested_version="${VERSION:-${1:-}}"
-requested_build_number="${BUILD_NUMBER:-}"
 create_build_log macos release
 
 source_version="$(read_single_line "$MACOS_DIR/VERSION")"
@@ -26,12 +25,17 @@ fi
 if [[ -n "$requested_version" && "$requested_version" != "$source_version" ]]; then
   fail_build "macOS Release" "VERSION=$requested_version does not match apps/macos/VERSION=$source_version" 2
 fi
-if [[ -n "$requested_build_number" && "$requested_build_number" != "$source_build" ]]; then
-  fail_build "macOS Release" "BUILD_NUMBER=$requested_build_number does not match apps/macos/BUILD_NUMBER=$source_build" 2
+if [[ -n "${BUILD_NUMBER:-}" ]]; then
+  fail_build "macOS Release" "BUILD_NUMBER is assigned automatically; use make set-macos-build-number only to reset its base" 2
 fi
 
 version="$source_version"
-build_number="$source_build"
+if ! acquire_macos_build_lock; then
+  fail_build "macOS Release" "another macOS build is already assigning a build number"
+fi
+trap release_macos_build_lock EXIT HUP INT TERM
+
+build_number="$(next_macos_build_number "$source_build")"
 artifact_dir="$BUILD_ROOT/artifacts/macos/$version"
 app_bundle="$artifact_dir/$APP_NAME-release-$build_number.app"
 archive="$artifact_dir/$APP_NAME-release-$build_number.zip"
@@ -59,6 +63,9 @@ if ! (
 ) >>"$BUILD_LOG" 2>&1; then
   fail_build "macOS Release" "build, local signing, or artifact verification failed"
 fi
+if ! write_single_line "$MACOS_DIR/BUILD_NUMBER" "$build_number" >>"$BUILD_LOG" 2>&1; then
+  fail_build "macOS Release" "artifact was built but apps/macos/BUILD_NUMBER could not be updated"
+fi
 
-printf 'OK macOS Release %s (build %s, locally signed)\nartifact: %s\nlog: %s\n' \
+printf 'OK macOS Release %s (build %s, locally signed; next build will increment)\nartifact: %s\nlog: %s\n' \
   "$version" "$build_number" "$archive" "$BUILD_LOG"
