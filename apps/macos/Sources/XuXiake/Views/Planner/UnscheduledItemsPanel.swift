@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct UnscheduledItemsPanel: View {
@@ -6,7 +7,6 @@ struct UnscheduledItemsPanel: View {
     let timeZone: TimeZone
     let onAdd: () -> Void
     let onEdit: (TripItem) -> Void
-    let onDropItemID: (UUID) -> Bool
     let onDelete: (TripItem) -> Void
 
     @State private var showsScheduledItems = false
@@ -35,7 +35,9 @@ struct UnscheduledItemsPanel: View {
                 List(items) { item in
                     UnscheduledItemCard(item: item)
                         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .draggable(PlannerItemDragPayload(itemID: item.id)) {
+                        .onDrag {
+                            NSItemProvider(object: item.id.uuidString as NSString)
+                        } preview: {
                             UnscheduledItemCard(item: item)
                                 .frame(width: 220)
                         }
@@ -98,11 +100,6 @@ struct UnscheduledItemsPanel: View {
             .help(showsScheduledItems ? "收起已安排事项" : "展开已安排事项")
             .accessibilityLabel("已安排事项")
             .accessibilityValue(showsScheduledItems ? "已展开" : "已收起")
-        }
-        .contentShape(Rectangle())
-        .dropDestination(for: PlannerItemDragPayload.self) { payloads, _ in
-            guard let payload = payloads.first else { return false }
-            return onDropItemID(payload.itemID)
         }
     }
 }

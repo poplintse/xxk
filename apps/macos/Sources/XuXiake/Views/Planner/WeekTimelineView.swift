@@ -1,5 +1,6 @@
 import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let plannerDragLogger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "com.iclawtse.xuxiake",
@@ -145,22 +146,16 @@ private struct DayTimelineColumn: View {
                 }
             }
             .frame(width: dayWidth, height: hourHeight * 24)
-            .dropDestination(for: PlannerItemDragPayload.self) { payloads, location in
-                guard let payload = payloads.first else {
-                    plannerDragLogger.error("Timeline drop rejected: no item identifier")
-                    return false
-                }
-                let minuteFromVisibleStart = min(max(Int((location.y / hourHeight) * 60), 0), 24 * 60 - 1)
-                let target = ScheduleEngine.dropTarget(
-                    on: day,
-                    minuteFromVisibleStart: minuteFromVisibleStart,
+            .onDrop(
+                of: [.utf8PlainText],
+                delegate: TimelineItemDropDelegate(
+                    day: day,
+                    hourHeight: hourHeight,
                     startHour: startHour,
-                    calendar: calendar
+                    calendar: calendar,
+                    onDrop: onDrop
                 )
-                plannerDragLogger.info("Timeline drop received")
-                onDrop(payload.itemID, target.day, target.minute)
-                return true
-            }
+            )
         }
         .overlay(alignment: .trailing) { Divider() }
     }
@@ -181,6 +176,48 @@ private struct DayTimelineColumn: View {
             minute: target.minute,
             positionMinute: minuteFromVisibleStart
         )
+    }
+}
+
+private struct TimelineItemDropDelegate: DropDelegate {
+    let day: Date
+    let hourHeight: CGFloat
+    let startHour: Int
+    let calendar: Calendar
+    let onDrop: (UUID, Date, Int) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.utf8PlainText])
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.utf8PlainText]).first else {
+            plannerDragLogger.error("Timeline drop rejected: no item provider")
+            return false
+        }
+        let minuteFromVisibleStart = min(max(Int((info.location.y / hourHeight) * 60), 0), 24 * 60 - 1)
+        let target = ScheduleEngine.dropTarget(
+            on: day,
+            minuteFromVisibleStart: minuteFromVisibleStart,
+            startHour: startHour,
+            calendar: calendar
+        )
+
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let itemIDString = object as? String, let itemID = UUID(uuidString: itemIDString) else {
+                plannerDragLogger.error("Timeline drop rejected: invalid item identifier")
+                return
+            }
+            Task { @MainActor in
+                plannerDragLogger.info("Timeline drop received")
+                onDrop(itemID, target.day, target.minute)
+            }
+        }
+        return true
     }
 }
 
